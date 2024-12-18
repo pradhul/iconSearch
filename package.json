@@ -1,0 +1,25 @@
+{
+  "name": "iconsearch",
+  "version": "1.0.0",
+  "description": "Semantic search for matches for finding the closest icon name",
+  "main": "index.js",
+  "scripts": {
+    "test": "test",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "dev": "ts-node src/index.ts"
+  },
+  "author": "Pradhul",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "genkit-cli": "^0.9.12",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@genkit-ai/googleai": "^0.9.12",
+    "dotenv": "^16.4.7",
+    "genkit": "^0.9.12"
+  }
+}
