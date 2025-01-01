@@ -1,6 +1,13 @@
 /**
  * @author Pradhul
  * @email pradhudev.1990@gmail.com
+ * @create date 2025-01-02 02:29:09
+ * @modify date 2025-01-02 02:29:09
+ * @desc [description]
+ */
+/**
+ * @author Pradhul
+ * @email pradhudev.1990@gmail.com
  * @create date 2024-12-18 03:11:58
  * @modify date 2024-12-18 03:11:58
  * @desc [description]
@@ -24,6 +31,7 @@ import {
 import fs from "fs";
 import nlp from "compromise";
 import { loadGloveModel, matchCategory } from "./search";
+import { head, put } from "@vercel/blob";
 
 type IconsResponse = {
   "SimpleLineIcons.json": string[];
@@ -37,26 +45,26 @@ type IconsResponse = {
   "FontAwesome.json": string[];
 };
 
-loadGloveModel(process.env.GLOVE_MODEL_PATH || "");
-dotenv.config();
-nlp.plugin({
-  words: {
-    phone: "Noun",
-  },
-});
-
 let categories: string[] = [];
-/** Extract Nouns (possible category names would be nouns or noun+words) */
-function _extractNouns(): (value: string[][], index: number) => any[] {
-  return (iconNames) =>
-    iconNames.map((iconName) => {
-      const doc = nlp(iconName.join(" "));
-      const nouns = doc.nouns().out("array");
-      return (doc.length > 1 && nouns.length > 1) || doc.length === 1 ? nouns : [];
-    });
-}
-
 const iconDataEndPoints = Object.values(iconURLs);
+
+dotenv.config();
+loadGloveModel(process.env.GLOVE_MODEL_PATH || "");
+
+/**
+ * An array of observables that fetch icon data from specified endpoints, process the data to extract icon names,
+ * filter out names containing hyphens, and then use natural language processing to match nouns, verbs, and adjectives.
+ *
+ * Each observable performs the following steps:
+ * 1. Makes an HTTP GET request to fetch icon data from the endpoint.
+ * 2. Extracts the keys (icon names) from the response data.
+ * 3. Filters out icon names that contain hyphens.
+ * 4. Uses NLP to match and extract nouns, verbs, and adjectives from the filtered icon names.
+ * 5. Returns an object where the key is the icon URL and the value is an array of matched words.
+ * 6. Catches and logs any errors that occur during the process, returning an empty array in case of an error.
+ *
+ * @constant {Observable<Object>[]} iconObservables - An array of observables for processing icon data.
+ */
 const iconObservables = iconDataEndPoints.map((iconURL) =>
   from(
     axios.get(`${process.env.ICON_NAMES_BASE_PATH}${iconURL}`).then((response) => response.data)
@@ -83,15 +91,20 @@ forkJoin(iconObservables)
         return { ...acc, [key]: value };
       }, {})
     ),
-    tap((iconData: IconsResponse) => {
-      fs.writeFileSync("iconData.json", JSON.stringify(iconData)); // FIXME: test remove this after exposing API
-    })
+    tap((iconData: IconsResponse) => writeToFile(iconData))
   )
   .subscribe({
     next: (result: IconsResponse) => {
       categories = result["Entypo.json"]; //FIXME: add all categories and get an aggregate of possible matches from all categories, then find the best match
       const inputWord = "letter";
-      // find all possible matches from all categories
+      /**
+       * find all possible matches from all categories
+       * Reduces the result object to an array of matched categories based on the input word.
+       *
+       * @param result - The object containing categories to be matched.
+       * @param inputWord - The word to match against the categories.
+       * @returns An array of matched category strings.
+       */
       const matchedCategories: string[] = Object.entries(result).reduce<string[]>(
         (acc, current) => {
           const matchedCategory = matchCategory(inputWord, current[1]);
@@ -109,4 +122,28 @@ forkJoin(iconObservables)
     },
   });
 
-// Outputs pizza as a drink, not food, fix this by loading a higher quality glove model possibly 100D
+/**
+ * Writes the provided icon data to a file named "iconData.json".
+ * If the file already exists, it logs a message indicating so.
+ * If the file does not exist, it creates a new file and writes the data to it.
+ *
+ * @param {IconsResponse} iconData - The icon data to be written to the file.
+ * @returns {Promise<void>} A promise that resolves when the operation is complete.
+ *
+ * @throws {BlobNotFoundError} If the file does not exist.
+ */
+async function writeToFile(iconData: IconsResponse) {
+  try {
+    await head("iconData.json");
+    console.log("iconData.json already exists");
+  } catch (BlobNotFoundError) {
+    console.log("iconData.json not found, creating a new file");
+    const result = await put("iconData.json", JSON.stringify(iconData), {
+      access: "public",
+      addRandomSuffix: false,
+    });
+    console.log("writing data to blob file: ", result);
+  }
+}
+
+// TODO: The current Glove Model Outputs pizza as a drink, not food, fix this by loading a higher quality glove model possibly 100D
