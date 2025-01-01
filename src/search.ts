@@ -5,28 +5,38 @@
  * @modify date 2024-12-20 05:36:28
  * @desc [description]
  */
+import axios from "axios";
 import dotenv from "dotenv";
 import fs from "fs";
 import natural from "natural";
+import readline from "readline";
+import { Readable } from "stream";
 
 dotenv.config();
 
 const wordVectors: { [key: string]: number[] } = {};
 
-/**
- * function to load the glove model
- * @param filePath
- */
-export function loadGloveModel(filePath: string): void {
-  const data = fs.readFileSync(filePath, "utf8");
-  const lines = data.split("\n");
-  lines.forEach((line) => {
-    const parts = line.split(" ");
-    const word = parts[0];
-    const vector = parts.slice(1).map(Number);
-    wordVectors[word] = vector;
-  });
-  console.log("Loaded Glove Model from: " + filePath);
+export async function fetchGloveModel(): Promise<void> {
+  try {
+    const response = await axios.get(
+      "https://6e2ozo2cfswoj5c7.public.blob.vercel-storage.com/glove.6B.50d.txt",
+      { responseType: "stream" }
+    );
+    const rl = readline.createInterface({ input: response.data as Readable, crlfDelay: Infinity });
+
+    rl.on("line", (line) => {
+      const parts = line.split(" ");
+      const word = parts[0];
+      const vector = parts.slice(1).map(Number);
+      wordVectors[word] = vector;
+    });
+
+    rl.on("close", () => {
+      console.log("Loaded Glove Model");
+    });
+  } catch (error) {
+    console.error("Error fetching glove model", error);
+  }
 }
 
 /**
