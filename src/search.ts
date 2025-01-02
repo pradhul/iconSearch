@@ -56,6 +56,8 @@ function _cosineSimilarity(vector1: number[], vector2: number[]): number {
 export function matchCategory(inputWord: string, categories: string[]): string {
   let maxSimilarity = 0; // Ignore negative similarity (-1 to 0)
   let matchedCategory = "";
+  console.log("Matching input word with categories...");
+  console.log("worVector length: ", Object.keys(wordVectors).length);
 
   categories.forEach((category) => {
     if (wordVectors[category] && wordVectors[inputWord]) {
