@@ -45,12 +45,8 @@ type IconsResponse = {
   "FontAwesome.json": string[];
 };
 
-let categories: string[] = [];
-const iconDataEndPoints = Object.values(iconURLs);
-
 dotenv.config();
 export async function main(searchQuery: string) {
-  console.log("Loading model...");
   await fetchGloveModel();
   console.log("Model loaded successfully");
 
@@ -68,64 +64,68 @@ export async function main(searchQuery: string) {
    *
    * @constant {Observable<Object>[]} iconObservables - An array of observables for processing icon data.
    */
-  const iconObservables = iconDataEndPoints.map((iconURL) =>
-    from(
-      axios.get(`${process.env.ICON_NAMES_BASE_PATH}${iconURL}`).then((response) => response.data)
-    ).pipe(
-      map(Object.keys),
-      map((iconNames) => iconNames.filter((iconName) => !iconName.includes("-"))),
-      map((iconNames) => {
-        return {
-          [iconURL]: nlp(iconNames.join(",")).match("(#Noun|#verb|#Adjective)").out("array"),
-        };
-      }),
-      catchError((err) => {
-        console.error("Error occurred: " + err);
-        return from([]);
-      })
-    )
-  );
-  console.log("Fetching icon data from endpoints...");
+  if (await !isIconDataAlreadyWritten()) {
+    const iconObservables = Object.values(iconURLs).map((iconURL) =>
+      from(
+        axios.get(`${process.env.ICON_NAMES_BASE_PATH}${iconURL}`).then((response) => response.data)
+      ).pipe(
+        map(Object.keys),
+        map((iconNames) => iconNames.filter((iconName) => !iconName.includes("-"))),
+        map((iconNames) => {
+          return {
+            [iconURL]: nlp(iconNames.join(",")).match("(#Noun|#verb|#Adjective)").out("array"),
+          };
+        }),
+        catchError((err) => {
+          console.error("Error occurred: " + err);
+          return from([]);
+        })
+      )
+    );
+    console.log("Fetching icon data from endpoints...");
 
-  // send all calls parallelly using forkJoin
-  forkJoin(iconObservables)
-    .pipe(
-      map((iconData: any[]) =>
-        iconData.reduce((acc, curr) => {
-          const key = Object.keys(curr)[0];
-          const value = (curr[key][0] as string).split(",");
-          return { ...acc, [key]: value };
-        }, {})
-      ),
-      tap((iconData: IconsResponse) => writeToFile(iconData))
-    )
-    .subscribe({
-      next: (result: IconsResponse) => {
-        categories = result["Entypo.json"];
-        /**
-         * find all possible matches from all categories
-         * Reduces the result object to an array of matched categories based on the input word.
-         *
-         * @param result - The object containing categories to be matched.
-         * @param inputWord - The word to match against the categories.
-         * @returns An array of matched category strings.
-         */
-        const matchedCategories: string[] = Object.entries(result).reduce<string[]>(
-          (acc, current) => {
-            const matchedCategory = matchCategory(searchQuery, current[1]);
-            acc.push(matchedCategory);
-            return acc;
-          },
-          []
-        );
-        // run again using the results array to find a best possible match
-        const bestMatch = matchCategory(searchQuery, matchedCategories);
-        console.log(`Matched category for ${searchQuery} is ${bestMatch}`);
-      },
-      error(err) {
-        console.error("Error occurred: " + err);
-      },
-    });
+    // send all calls parallelly using forkJoin
+    forkJoin(iconObservables)
+      .pipe(
+        map((iconData: any[]) =>
+          iconData.reduce((acc, curr) => {
+            const key = Object.keys(curr)[0];
+            const value = (curr[key][0] as string).split(",");
+            return { ...acc, [key]: value };
+          }, {})
+        ),
+        tap((iconData: IconsResponse) => writeToFile(iconData))
+      )
+      .subscribe({
+        next: (result: IconsResponse) => findBestPossibleMatch(result),
+        error(err) {
+          console.error("Error occurred: " + err);
+        },
+      });
+  } else {
+    console.log("Icon data already written to file, reading from file now..");
+    const iconData = await head("iconData.json");
+    axios.get(iconData.url).then((response) => findBestPossibleMatch(response.data));
+  }
+
+  /**
+   * find all possible matches from all categories
+   * Reduces the result object to an array of matched categories based on the input word.
+   *
+   * @param result - The object containing categories to be matched.
+   * @param inputWord - The word to match against the categories.
+   * @returns An array of matched category strings.
+   */
+  function findBestPossibleMatch(result: IconsResponse) {
+    const matchedCategories: string[] = Object.entries(result).reduce<string[]>((acc, current) => {
+      const matchedCategory = matchCategory(searchQuery, current[1]);
+      acc.push(matchedCategory);
+      return acc;
+    }, []);
+    // run again using the results array to find a best possible match
+    const bestMatch = matchCategory(searchQuery, matchedCategories);
+    console.log(`Matched category for ${searchQuery} is ${bestMatch}`);
+  }
 
   /**
    * Writes the provided icon data to a file named "iconData.json".
@@ -138,18 +138,28 @@ export async function main(searchQuery: string) {
    * @throws {BlobNotFoundError} If the file does not exist.
    */
   async function writeToFile(iconData: IconsResponse) {
+    if (await isIconDataAlreadyWritten()) {
+      console.log("iconData.json already written");
+      return;
+    }
+    console.log("iconData.json not found, creating a new file");
+    const result = await put("iconData.json", JSON.stringify(iconData), {
+      access: "public",
+      addRandomSuffix: false,
+    });
+    console.log("writing data to blob file: ", result);
+  }
+
+  async function isIconDataAlreadyWritten() {
     try {
-      // await head("iconData.json"); //TODO: Enable before push to vercel
-      console.log("iconData.json already exists");
+      await head("iconData.json");
+      return true;
     } catch (BlobNotFoundError) {
-      console.log("iconData.json not found, creating a new file");
-      const result = await put("iconData.json", JSON.stringify(iconData), {
-        access: "public",
-        addRandomSuffix: false,
-      });
-      console.log("writing data to blob file: ", result);
+      return false;
     }
   }
 }
+
+main("letter");
 
 // TODO: The current Glove Model Outputs pizza as a drink, not food, fix this by loading a higher quality glove model possibly 100D
