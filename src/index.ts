@@ -50,7 +50,9 @@ const iconDataEndPoints = Object.values(iconURLs);
 
 dotenv.config();
 export async function main(searchQuery: string) {
+  console.log("Loading model...");
   await fetchGloveModel();
+  console.log("Model loaded successfully");
 
   /**
    * An array of observables that fetch icon data from specified endpoints, process the data to extract icon names,
@@ -83,6 +85,7 @@ export async function main(searchQuery: string) {
       })
     )
   );
+  console.log("Fetching icon data from endpoints...");
 
   // send all calls parallelly using forkJoin
   forkJoin(iconObservables)
