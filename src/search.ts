@@ -36,6 +36,8 @@ export async function fetchGloveModel(): Promise<void> {
     });
   } catch (error) {
     console.error("Error fetching glove model", error);
+  } finally {
+    console.log(`Loaded Glove Model with ${Object.keys(wordVectors).length} words`);
   }
 }
 
