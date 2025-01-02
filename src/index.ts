@@ -49,7 +49,7 @@ let categories: string[] = [];
 const iconDataEndPoints = Object.values(iconURLs);
 
 dotenv.config();
-(async function main() {
+export async function main(searchQuery: string) {
   await fetchGloveModel();
 
   /**
@@ -99,7 +99,6 @@ dotenv.config();
     .subscribe({
       next: (result: IconsResponse) => {
         categories = result["Entypo.json"];
-        const inputWord = "letter";
         /**
          * find all possible matches from all categories
          * Reduces the result object to an array of matched categories based on the input word.
@@ -110,15 +109,15 @@ dotenv.config();
          */
         const matchedCategories: string[] = Object.entries(result).reduce<string[]>(
           (acc, current) => {
-            const matchedCategory = matchCategory(inputWord, current[1]);
+            const matchedCategory = matchCategory(searchQuery, current[1]);
             acc.push(matchedCategory);
             return acc;
           },
           []
         );
         // run again using the results array to find a best possible match
-        const bestMatch = matchCategory(inputWord, matchedCategories);
-        console.log(`Matched category for ${inputWord} is ${bestMatch}`);
+        const bestMatch = matchCategory(searchQuery, matchedCategories);
+        console.log(`Matched category for ${searchQuery} is ${bestMatch}`);
       },
       error(err) {
         console.error("Error occurred: " + err);
@@ -148,6 +147,6 @@ dotenv.config();
       console.log("writing data to blob file: ", result);
     }
   }
-})().catch((err) => console.error(err));
+}
 
 // TODO: The current Glove Model Outputs pizza as a drink, not food, fix this by loading a higher quality glove model possibly 100D
