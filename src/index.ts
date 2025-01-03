@@ -20,6 +20,7 @@ import { catchError, forkJoin, from, map, tap } from "rxjs";
 import nlp from "compromise";
 import { fetchGloveModel, matchCategory } from "./search";
 import { head, put } from "@vercel/blob";
+import fs from "fs";
 
 type IconsResponse = {
   "SimpleLineIcons.json": string[];
@@ -38,7 +39,7 @@ export async function main(searchQuery: string): Promise<string> {
   const startTime = Date.now();
   try {
     console.time("Execution Time");
-    const [_, iconDataFomFile] = await Promise.all([fetchGloveModel(), getIconDataFromBlobFile()]);
+    const [_, iconDataFomFile] = await Promise.all([fetchGloveModel(), readFileFromDisk()]);
 
     /**
      * An array of observables that fetch icon data from specified endpoints, process the data to extract icon names,
@@ -105,6 +106,34 @@ export async function main(searchQuery: string): Promise<string> {
       return findBestPossibleMatch(iconDataFomFile);
     }
 
+    async function readFileFromDisk(): Promise<IconsResponse> {
+      return new Promise((resolve, reject) => {
+        fs.readFile("iconData.json", "utf8", (err, data) => {
+          if (err) {
+            console.error("Error reading file:", err);
+            reject(err);
+            return;
+          }
+          try {
+            const jsonData = JSON.parse(data);
+            resolve(jsonData as IconsResponse);
+          } catch (parseError) {
+            console.error("Error parsing JSON:", parseError);
+            reject(parseError);
+          }
+        });
+      });
+    }
+
+    /**
+     * Asynchronously retrieves icon data from a blob file.
+     *
+     * This function reads the `iconData.json` file to get the URL of the icon data,
+     * then makes an HTTP GET request to fetch the icon data in JSON format.
+     *
+     * @returns {Promise<any>} A promise that resolves to the icon data.
+     * @throws Will throw an error if there is an issue reading the icon data file or making the HTTP request.
+     */
     async function getIconDataFromBlobFile() {
       try {
         const iconData = await head("iconData.json");
