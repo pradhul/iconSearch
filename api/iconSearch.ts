@@ -1,13 +1,25 @@
-import { VercelRequest, VercelResponse } from "@vercel/node";
 import { main } from "../src";
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const { searchQuery } = req.query;
-  if (!searchQuery) {
-    res.status(400).json({ message: "Query parameter 'searchQuery' is required" });
-    return;
+const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    const searchQuery = event.queryStringParameters?.searchQuery;
+    if (!searchQuery) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ message: "Query parameter 'searchQuery' is required" }),
+      };
+    }
+    const bestMatch = await main(searchQuery);
+    console.log("Best match: ", bestMatch);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ bestMatch }),
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ message: "Internal Server Error" }),
+    };
   }
-  const bestMatch = await main(searchQuery as string);
-  console.log("Best match: ", bestMatch);
-  res.status(200).json({ bestMatch });
-}
+};

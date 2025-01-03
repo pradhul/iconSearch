@@ -13,6 +13,7 @@
   "author": "Pradhul",
   "license": "ISC",
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.147",
     "@types/node": "^22.10.2",
     "genkit-cli": "^0.9.12",
     "ts-node": "^10.9.2",
@@ -22,6 +23,7 @@
     "@genkit-ai/googleai": "^0.9.12",
     "@vercel/blob": "^0.27.0",
     "@vercel/node": "^5.0.0",
+    "aws-lambda": "^1.0.7",
     "axios": "^1.7.9",
     "compromise": "^14.14.3",
     "dotenv": "^16.4.7",
