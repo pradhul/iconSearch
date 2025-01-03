@@ -16,19 +16,7 @@
 import axios from "axios";
 import dotenv from "dotenv";
 import { iconURLs } from "./constants";
-import {
-  catchError,
-  first,
-  forkJoin,
-  from,
-  map,
-  mergeAll,
-  mergeMap,
-  reduce,
-  take,
-  tap,
-} from "rxjs";
-import fs from "fs";
+import { catchError, forkJoin, from, map, tap } from "rxjs";
 import nlp from "compromise";
 import { fetchGloveModel, matchCategory } from "./search";
 import { head, put } from "@vercel/blob";
@@ -50,7 +38,7 @@ export async function main(searchQuery: string) {
   const startTime = Date.now();
   try {
     console.time("Execution Time");
-    await fetchGloveModel();
+    const [_, iconDataFomFile] = await Promise.all([fetchGloveModel(), getIconDataFromBlobFile()]);
 
     /**
      * An array of observables that fetch icon data from specified endpoints, process the data to extract icon names,
@@ -108,14 +96,18 @@ export async function main(searchQuery: string) {
         });
     } else {
       console.log("Icon data already written to file, reading from file now..");
-      const iconData = await head("iconData.json");
-      axios
-        .get(iconData.url)
-        .then((response) => findBestPossibleMatch(response.data))
-        .catch((err) => {
-          console.error("Error occurred: " + err);
-          throw err;
-        });
+      findBestPossibleMatch(iconDataFomFile);
+    }
+
+    async function getIconDataFromBlobFile() {
+      try {
+        const iconData = await head("iconData.json");
+        const response = await axios.get(iconData.url, { responseType: "json" });
+        return response.data;
+      } catch (error) {
+        console.error("Error reading icon data from file", error);
+        throw error;
+      }
     }
 
     /**
@@ -178,3 +170,4 @@ export async function main(searchQuery: string) {
   }
 }
 // TODO: The current Glove Model Outputs pizza as a drink, not food, fix this by loading a higher quality glove model possibly 100D
+// main("letter");

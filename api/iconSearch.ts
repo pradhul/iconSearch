@@ -8,5 +8,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
   const bestMatch = await main(searchQuery as string);
+  console.log("Best match: ", bestMatch);
   res.status(200).json({ bestMatch });
 }

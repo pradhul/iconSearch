@@ -7,38 +7,50 @@
  */
 import axios from "axios";
 import dotenv from "dotenv";
-import fs from "fs";
-import natural from "natural";
-import readline from "readline";
+import * as readline from "readline";
 import { Readable } from "stream";
 
 dotenv.config();
 
 const wordVectors: { [key: string]: number[] } = {};
 
-export async function fetchGloveModel(): Promise<void> {
-  try {
-    const response = await axios.get(
-      "https://6e2ozo2cfswoj5c7.public.blob.vercel-storage.com/glove.6B.50d.txt",
-      { responseType: "stream" }
-    );
-    const rl = readline.createInterface({ input: response.data as Readable, crlfDelay: Infinity });
-
-    rl.on("line", (line) => {
-      const parts = line.split(" ");
-      const word = parts[0];
-      const vector = parts.slice(1).map(Number);
-      wordVectors[word] = vector;
-    });
-
-    rl.on("close", () => {
-      console.log(`Loaded Glove Model with ${Object.keys(wordVectors).length} words`);
-    });
-  } catch (error) {
-    console.error("Error fetching glove model", error);
-  } finally {
-    console.log(`Loaded Glove Model with ${Object.keys(wordVectors).length} words`);
+async function loadChunksInBatches(urls: string[], batchSize: number = 2): Promise<void> {
+  for (let i = 0; i < urls.length; i += batchSize) {
+    const batch = urls.slice(i, i + batchSize);
+    await Promise.all(batch.map(loadChunk));
+    console.log(`Loaded batch ${i / batchSize + 1}`);
   }
+}
+
+async function loadChunk(url: string): Promise<void> {
+  const response = await axios.get(url, { responseType: "stream" });
+  const rl = readline.createInterface({ input: response.data as Readable });
+  const tempVectors: { [key: string]: number[] } = {};
+
+  rl.on("line", (line) => {
+    const parts = line.split(" ");
+    const word = parts[0];
+    const vector = parts.slice(1).map(Number);
+    tempVectors[word] = vector;
+  });
+
+  await new Promise((resolve) => rl.on("close", resolve));
+  Object.assign(wordVectors, tempVectors);
+}
+
+export async function fetchGloveModel(): Promise<void> {
+  const chunkURLs = [
+    "https://6e2ozo2cfswoj5c7.public.blob.vercel-storage.com/glove_part_aa.txt",
+    "https://6e2ozo2cfswoj5c7.public.blob.vercel-storage.com/glove_part_ab.txt",
+    "https://6e2ozo2cfswoj5c7.public.blob.vercel-storage.com/glove_part_ac.txt",
+    "https://6e2ozo2cfswoj5c7.public.blob.vercel-storage.com/glove_part_ad.txt",
+
+    // Add more URLs as needed
+  ];
+
+  console.log("Loading GloVe chunks...");
+  await loadChunksInBatches(chunkURLs, 3);
+  console.log("All chunks loaded. Total words:", Object.keys(wordVectors).length);
 }
 
 /**
@@ -58,12 +70,16 @@ function _cosineSimilarity(vector1: number[], vector2: number[]): number {
 export function matchCategory(inputWord: string, categories: string[]): string {
   let maxSimilarity = 0; // Ignore negative similarity (-1 to 0)
   let matchedCategory = "";
+  // prefetch the input word vector
+  const inputVector = wordVectors[inputWord];
+  if (!inputVector) return matchedCategory;
+
   console.log(`Matching ${inputWord} with categories...`);
   console.log("worVector length: ", Object.keys(wordVectors).length);
 
   categories.forEach((category) => {
-    if (wordVectors[category] && wordVectors[inputWord]) {
-      const similarity = _cosineSimilarity(wordVectors[category], wordVectors[inputWord]);
+    if (wordVectors[category] && inputVector) {
+      const similarity = _cosineSimilarity(wordVectors[category], inputVector);
       if (similarity > maxSimilarity) {
         maxSimilarity = similarity;
         matchedCategory = category;
