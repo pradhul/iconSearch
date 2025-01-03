@@ -34,7 +34,7 @@ type IconsResponse = {
 };
 
 dotenv.config();
-export async function main(searchQuery: string) {
+export async function main(searchQuery: string): Promise<string> {
   const startTime = Date.now();
   try {
     console.time("Execution Time");
@@ -77,26 +77,32 @@ export async function main(searchQuery: string) {
       console.log("Fetching icon data from endpoints...");
 
       // send all calls parallelly using forkJoin
-      forkJoin(iconObservables)
-        .pipe(
-          map((iconData: any[]) =>
-            iconData.reduce((acc, curr) => {
-              const key = Object.keys(curr)[0];
-              const value = (curr[key][0] as string).split(",");
-              return { ...acc, [key]: value };
-            }, {})
-          ),
-          tap((iconData: IconsResponse) => writeToFile(iconData))
-        )
-        .subscribe({
-          next: (result: IconsResponse) => findBestPossibleMatch(result),
-          error(err) {
-            console.error("Error occurred: " + err);
-          },
-        });
+      return new Promise<string>((resolve, reject) => {
+        forkJoin(iconObservables)
+          .pipe(
+            map((iconData: any[]) =>
+              iconData.reduce((acc, curr) => {
+                const key = Object.keys(curr)[0];
+                const value = (curr[key][0] as string).split(",");
+                return { ...acc, [key]: value };
+              }, {})
+            ),
+            tap((iconData: IconsResponse) => writeToFile(iconData))
+          )
+          .subscribe({
+            next: (result: IconsResponse) => {
+              const bestMatch = findBestPossibleMatch(result);
+              resolve(bestMatch);
+            },
+            error(err) {
+              console.error("Error occurred: " + err);
+              reject(err);
+            },
+          });
+      });
     } else {
       console.log("Icon data already written to file, reading from file now..");
-      findBestPossibleMatch(iconDataFomFile);
+      return findBestPossibleMatch(iconDataFomFile);
     }
 
     async function getIconDataFromBlobFile() {
@@ -118,7 +124,7 @@ export async function main(searchQuery: string) {
      * @param inputWord - The word to match against the categories.
      * @returns An array of matched category strings.
      */
-    function findBestPossibleMatch(result: IconsResponse) {
+    function findBestPossibleMatch(result: IconsResponse): string {
       const matchedCategories: string[] = Object.entries(result).reduce<string[]>(
         (acc, current) => {
           const matchedCategory = matchCategory(searchQuery, current[1]);
@@ -130,6 +136,7 @@ export async function main(searchQuery: string) {
       // run again using the results array to find a best possible match
       const bestMatch = matchCategory(searchQuery, matchedCategories);
       console.log(`Matched category for ${searchQuery} is ${bestMatch}`);
+      return bestMatch;
     }
 
     /**
@@ -165,6 +172,7 @@ export async function main(searchQuery: string) {
     }
   } catch (error) {
     console.error("Error Occurred in main ", error);
+    return "Error occurred";
   } finally {
     console.timeEnd("Execution Time");
   }
