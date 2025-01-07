@@ -3,3 +3,4 @@
 models/*
 .vercel
 .DS_Store
+dist/*
