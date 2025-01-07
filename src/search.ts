@@ -6,6 +6,7 @@
  * @desc [description]
  */
 import axios from "axios";
+import * as fs from "fs";
 import dotenv from "dotenv";
 import * as readline from "readline";
 import { Readable } from "stream";
@@ -23,8 +24,9 @@ async function loadChunksInBatches(urls: string[], batchSize: number = 2): Promi
 }
 
 async function loadChunk(url: string): Promise<void> {
-  const response = await axios.get(url, { responseType: "stream" });
-  const rl = readline.createInterface({ input: response.data as Readable });
+  // const response = await axios.get(url, { responseType: "stream" });
+  const response = fs.createReadStream(url);
+  const rl = readline.createInterface({ input: response as Readable });
   const tempVectors: { [key: string]: number[] } = {};
 
   rl.on("line", (line) => {
@@ -40,10 +42,9 @@ async function loadChunk(url: string): Promise<void> {
 
 export async function fetchGloveModel(): Promise<void> {
   const chunkURLs = [
-    "https://6e2ozo2cfswoj5c7.public.blob.vercel-storage.com/glove_part_aa.txt",
-    "https://6e2ozo2cfswoj5c7.public.blob.vercel-storage.com/glove_part_ab.txt",
-    "https://6e2ozo2cfswoj5c7.public.blob.vercel-storage.com/glove_part_ac.txt",
-    "https://6e2ozo2cfswoj5c7.public.blob.vercel-storage.com/glove_part_ad.txt",
+    "models/glove_part_aa.txt",
+    "models/glove_part_ab.txt",
+    "models/glove_part_ac.txt",
 
     // Add more URLs as needed
   ];
@@ -70,9 +71,14 @@ function _cosineSimilarity(vector1: number[], vector2: number[]): number {
 export function matchCategory(inputWord: string, categories: string[]): string {
   let maxSimilarity = 0; // Ignore negative similarity (-1 to 0)
   let matchedCategory = "";
+
   // prefetch the input word vector
+  inputWord = inputWord.replace(/[\"',]/g, "");
   const inputVector = wordVectors[inputWord];
-  if (!inputVector) return matchedCategory;
+  if (!inputVector) {
+    console.log("Input word not found in GloVe model");
+    return "Not Found";
+  }
 
   console.log(`Matching ${inputWord} with categories...`);
   console.log("worVector length: ", Object.keys(wordVectors).length);

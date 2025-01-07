@@ -6,7 +6,7 @@
   "scripts": {
     "test": "test",
     "start": "node dist/index.js",
-    "build": "tsc",
+    "build": "webpack --config webpack.config.js",
     "dev": "ts-node src/index.ts",
     "pull-env": "vercel env pull .env"
   },
@@ -14,10 +14,14 @@
   "license": "ISC",
   "devDependencies": {
     "@types/aws-lambda": "^8.10.147",
+    "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",
     "genkit-cli": "^0.9.12",
+    "ts-loader": "^9.5.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^0.9.12",
@@ -27,6 +31,7 @@
     "axios": "^1.7.9",
     "compromise": "^14.14.3",
     "dotenv": "^16.4.7",
+    "express": "^4.21.2",
     "genkit": "^0.9.12",
     "natural": "^8.0.1",
     "next": "^15.1.3",
