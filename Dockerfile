@@ -1,6 +1,6 @@
 # Dockerfile
 # Build stage
-FROM node:18 AS builder
+FROM --platform=linux/amd64 node:18 AS builder
 
 # Set working directory
 WORKDIR /app
@@ -22,7 +22,7 @@ COPY iconData.json ./
 RUN npm run build
 
 # Production stage
-FROM node:18-slim
+FROM --platform=linux/amd64 node:18-slim
 
 WORKDIR /app
 

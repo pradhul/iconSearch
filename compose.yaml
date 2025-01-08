@@ -11,6 +11,8 @@ services:
   server:
     build:
       context: .
+      platforms:
+        - linux/amd64
     environment:
       NODE_ENV: production
     ports:
